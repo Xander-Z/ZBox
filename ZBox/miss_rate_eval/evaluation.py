@@ -8,28 +8,25 @@ and apply minor modification for KAISTPed benchmark.
 from collections import defaultdict
 import copy
 import datetime
-import json
 import matplotlib
 import numpy as np
-import os
 import pdb
 import sys
-import tempfile
 import traceback
+import time
 
 from pathlib import Path
 
 # matplotlib.use('Agg')
 # from matplotlib.patches import Polygon
 
-from ZBox.kaist_eval.coco import COCO
-from ZBox.kaist_eval.cocoeval import COCOeval, Params
+from ZBox.miss_rate_eval.coco import COCO
+from ZBox.miss_rate_eval.cocoeval import COCOeval, Params
 
 font = {'size': 22}
 matplotlib.rc('font', **font)
 
-
-ROOT = Path(__file__).resolve().parents[0]  # 获取当前文件的父路径
+ROOT = Path(__file__).resolve().parents[0]  # ��ȡ��ǰ�ļ��ĸ�·��
 
 
 class KAISTPedEval(COCOeval):
@@ -43,7 +40,7 @@ class KAISTPedEval(COCOeval):
         '''
         super().__init__(kaistGt, kaistDt, iouType)
 
-        self.params = KAISTParams(iouType=iouType)   # parameters
+        self.params = KAISTParams(iouType=iouType)  # parameters
         self.method = method
 
     def _prepare(self, id_setup):
@@ -65,23 +62,23 @@ class KAISTPedEval(COCOeval):
             gbox = gt['bbox']
             gt['ignore'] = 1 \
                 if gt['height'] < self.params.HtRng[id_setup][0] \
-                or gt['height'] > self.params.HtRng[id_setup][1] \
-                or gt['occlusion'] not in self.params.OccRng[id_setup] \
-                or gbox[0] < self.params.bndRng[0] \
-                or gbox[1] < self.params.bndRng[1] \
-                or gbox[0] + gbox[2] > self.params.bndRng[2] \
-                or gbox[1] + gbox[3] > self.params.bndRng[3] \
+                   or gt['height'] > self.params.HtRng[id_setup][1] \
+                   or gt['occlusion'] not in self.params.OccRng[id_setup] \
+                   or gbox[0] < self.params.bndRng[0] \
+                   or gbox[1] < self.params.bndRng[1] \
+                   or gbox[0] + gbox[2] > self.params.bndRng[2] \
+                   or gbox[1] + gbox[3] > self.params.bndRng[3] \
                 else gt['ignore']
 
-        self._gts = defaultdict(list)       # gt for evaluation
-        self._dts = defaultdict(list)       # dt for evaluation
+        self._gts = defaultdict(list)  # gt for evaluation
+        self._dts = defaultdict(list)  # dt for evaluation
         for gt in gts:
             self._gts[gt['image_id'], gt['category_id']].append(gt)
         for dt in dts:
             self._dts[dt['image_id'], dt['category_id']].append(dt)
 
-        self.evalImgs = defaultdict(list)   # per-image per-category evaluation results
-        self.eval = {}                      # accumulated evaluation results
+        self.evalImgs = defaultdict(list)  # per-image per-category evaluation results
+        self.eval = {}  # accumulated evaluation results
 
     def evaluate(self, id_setup):
         '''
@@ -194,7 +191,7 @@ class KAISTPedEval(COCOeval):
             else:
                 gt = [_ for cId in p.catIds for _ in self._gts[imgId, cId]]
                 dt = [_ for cId in p.catIds for _ in self._dts[imgId, cId]]
-            
+
             if len(gt) == 0 and len(dt) == 0:
                 return None
 
@@ -262,7 +259,7 @@ class KAISTPedEval(COCOeval):
 
         except Exception:
 
-            ex_type, ex_value, ex_traceback = sys.exc_info()            
+            ex_type, ex_value, ex_traceback = sys.exc_info()
 
             # Extract unformatter stack traces as tuples
             trace_back = traceback.extract_tb(ex_traceback)
@@ -271,7 +268,8 @@ class KAISTPedEval(COCOeval):
             stack_trace = list()
 
             for trace in trace_back:
-                stack_trace.append("File : %s , Line : %d, Func.Name : %s, Message : %s" % (trace[0], trace[1], trace[2], trace[3]))
+                stack_trace.append(
+                    "File : %s , Line : %d, Func.Name : %s, Message : %s" % (trace[0], trace[1], trace[2], trace[3]))
 
             sys.stderr.write("[Error] Exception type : %s \n" % ex_type.__name__)
             sys.stderr.write("[Error] Exception message : %s \n" % ex_value)
@@ -312,14 +310,14 @@ class KAISTPedEval(COCOeval):
         R = len(p.fppiThrs)
         K = len(p.catIds) if p.useCats else 1
         M = len(p.maxDets)
-        ys = -np.ones((T, R, K, M))     # -1 for the precision of absent categories
+        ys = -np.ones((T, R, K, M))  # -1 for the precision of absent categories
 
         xx_graph = []
         yy_graph = []
 
         # create dictionary for future indexing
         _pe = self._paramsEval
-        catIds = [1]                    # _pe.catIds if _pe.useCats else [-1]
+        catIds = [1]  # _pe.catIds if _pe.useCats else [-1]
         setK = set(catIds)
         setM = set(_pe.maxDets)
         setI = set(_pe.imgIds)
@@ -328,7 +326,7 @@ class KAISTPedEval(COCOeval):
         m_list = [m for n, m in enumerate(p.maxDets) if m in setM]
         i_list = [n for n, i in enumerate(p.imgIds) if i in setI]
         I0 = len(_pe.imgIds)
-        
+
         # retrieve E at each category, area range, and max number of detections
         for k, k0 in enumerate(k_list):
             Nk = k0 * I0
@@ -359,7 +357,7 @@ class KAISTPedEval(COCOeval):
 
                 tp_sum = np.cumsum(tps, axis=1).astype(dtype=np.float64)
                 fp_sum = np.cumsum(fps, axis=1).astype(dtype=np.float64)
-            
+
                 for t, (tp, fp) in enumerate(zip(tp_sum, fp_sum)):
                     tp = np.array(tp)
                     fppi = np.array(fp) / I0
@@ -386,7 +384,7 @@ class KAISTPedEval(COCOeval):
                     except Exception:
                         pass
                     ys[t, :, k, m] = np.array(q)
-        
+
         self.eval = {
             'params': p,
             'counts': [T, R, K, M],
@@ -397,11 +395,11 @@ class KAISTPedEval(COCOeval):
         }
 
     @staticmethod
-    def draw_figure(ax, eval_results, methods, colors):
+    def draw_figure(ax, eval_results, methods):
         """Draw figure"""
-        assert len(eval_results) == len(methods) == len(colors)
+        assert len(eval_results) == len(methods)
 
-        for eval_result, method, color in zip(eval_results, methods, colors):
+        for eval_result, method in zip(eval_results, methods):
             mrs = 1 - eval_result['TP']
             mean_s = np.log(mrs[mrs < 2])
             mean_s = np.mean(mean_s)
@@ -410,7 +408,7 @@ class KAISTPedEval(COCOeval):
             xx = eval_result['xx']
             yy = eval_result['yy']
 
-            ax.plot(xx[0], yy[0], color=color, linewidth=3, label=f'{mean_s:.2f}%, {method}')
+            ax.plot(xx[0], yy[0], linewidth=3, label=f'{mean_s:.2f}%, {method}')
 
         ax.set_yscale('log')
         ax.set_xscale('log')
@@ -422,7 +420,7 @@ class KAISTPedEval(COCOeval):
         yt += [100]
         yt = [yy / 100.0 for yy in yt]
         yticklabels += [1]
-        
+
         ax.set_yticks(yt)
         ax.set_yticklabels(yticklabels)
         ax.grid(which='major', axis='both')
@@ -436,6 +434,7 @@ class KAISTPedEval(COCOeval):
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         '''
+
         def _summarize(iouThr=None, maxDets=100):
             OCC_TO_TEXT = ['none', 'partial_occ', 'heavy_occ']
 
@@ -473,7 +472,7 @@ class KAISTPedEval(COCOeval):
 
         if not self.eval:
             raise Exception('Please run accumulate() first')
-        
+
         return _summarize(iouThr=.5, maxDets=1000)
 
 
@@ -511,39 +510,42 @@ class KAIST(COCO):
         for line in lines:
             json_format = {}
             pred_info = [float(ll) for ll in line.split(',')]
-            json_format["image_id"] = pred_info[0] - 1                                      # image id
-            json_format["category_id"] = 1                                                  # pedestrian
+            json_format["image_id"] = pred_info[0] - 1  # image id
+            json_format["category_id"] = 1  # pedestrian
             json_format["bbox"] = [pred_info[1], pred_info[2], pred_info[3], pred_info[4]]  # bbox
             json_format["score"] = pred_info[5]
 
             predict_result.append(json_format)
         return predict_result
 
-    def loadRes(self, resFile):
-        """
-        Load result file and return a result api object.
-        :param   resFile (str)     : file name of result file
-        :return: res (obj)         : result api object
-        """
+    def loadRes(self, anns):
 
-        # If resFile is a text file, convert it to json
-        resFile = str(resFile)
-        if type(resFile) == str and resFile.endswith('.txt'):
-            anns = self.txt2json(resFile)
-            _resFile = next(tempfile._get_candidate_names())
-            with open(_resFile, 'w') as f:
-                json.dump(anns, f, indent=4)
-            res = super().loadRes(_resFile)
-            os.remove(_resFile)
-        elif type(resFile) == str and resFile.endswith('.json'):
-            res = super().loadRes(resFile)
-        else:
-            raise Exception('[Error] Exception extension : %s \n' % resFile.split('.')[-1]) 
+        res = COCO()
+        res.dataset['images'] = [img for img in self.dataset['images']]
 
+        print('Loading and preparing results...')
+        tic = time.time()
+        annsImgIds = [ann['image_id'] for ann in anns]  # ��ȡ image id �б�
+        assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
+            'Results do not correspond to current coco set'  # ���id�б�
+        if 'bbox' in anns[0] and not anns[0]['bbox'] == []:
+            res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
+            for id, ann in enumerate(anns):
+                bb = ann['bbox']
+                x1, x2, y1, y2 = [bb[0], bb[0] + bb[2], bb[1], bb[1] + bb[3]]
+                if not 'segmentation' in ann:
+                    ann['segmentation'] = [[x1, y1, x1, y2, x2, y2, x2, y1]]
+                ann['area'] = bb[2] * bb[3]
+                ann['id'] = id + 1
+                ann['iscrowd'] = 0
+        print('DONE (t={:0.2f}s)'.format(time.time() - tic))
+
+        res.dataset['annotations'] = anns
+        res.createIndex()
         return res
 
 
-def evaluate(test_annotation_file: str, user_submission_file: str, phase_codename: str = 'Multispectral'):
+def evaluate(user_submission: list, annotation_file: str):
     """Evaluates the submission for a particular challenge phase and returns score
 
     Parameters
@@ -560,12 +562,11 @@ def evaluate(test_annotation_file: str, user_submission_file: str, phase_codenam
     Dict
         Evaluated/Accumulated KAISTPedEval objects for All/Day/Night
     """
-    kaistGt = KAIST(test_annotation_file)
-    kaistDt = kaistGt.loadRes(user_submission_file)
+    kaistGt = KAIST(annotation_file)
+    kaistDt = kaistGt.loadRes(user_submission)
 
     imgIds = sorted(kaistGt.getImgIds())
-    method = os.path.basename(user_submission_file)
-    kaistEval = KAISTPedEval(kaistGt, kaistDt, 'bbox', method)
+    kaistEval = KAISTPedEval(kaistGt, kaistDt, 'bbox', 'method')
 
     kaistEval.params.catIds = [1]
 
@@ -591,9 +592,8 @@ def evaluate(test_annotation_file: str, user_submission_file: str, phase_codenam
     MR_night = eval_result['night'].summarize(0)
 
     recall_all = 1 - eval_result['all'].eval['yy'][0][-1]
-    
 
-    return MR_all, MR_day, MR_night
+    return MR_all, MR_day, MR_night, recall_all, eval_result
 
 
 
