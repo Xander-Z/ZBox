@@ -6,28 +6,22 @@ and apply minor modification for KAISTPed benchmark.
 
 """
 from collections import defaultdict
-import argparse
 import copy
 import datetime
-import json
 import matplotlib
 import numpy as np
-import os
 import pdb
 import sys
-import tempfile
 import traceback
 import time
 
-import yaml
 from pathlib import Path
 
 # matplotlib.use('Agg')
 # from matplotlib.patches import Polygon
-import matplotlib.pyplot as plt
 
-from kaist_eval.coco import COCO
-from kaist_eval.cocoeval import COCOeval, Params
+from ZBox.kaist_eval.coco import COCO
+from ZBox.kaist_eval.cocoeval import COCOeval, Params
 
 font = {'size': 22}
 matplotlib.rc('font', **font)
@@ -551,7 +545,7 @@ class KAIST(COCO):
         return res
 
 
-def evaluate(test_annotation_file: str, user_submission: list):
+def evaluate(user_submission: list, test_annotation_file='KAIST_annotation.json'):
     """Evaluates the submission for a particular challenge phase and returns score
 
     Parameters

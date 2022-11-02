@@ -6,7 +6,6 @@ and apply minor modification for KAISTPed benchmark.
 
 """
 from collections import defaultdict
-import argparse
 import copy
 import datetime
 import json
@@ -18,15 +17,13 @@ import sys
 import tempfile
 import traceback
 
-import yaml
 from pathlib import Path
 
 # matplotlib.use('Agg')
 # from matplotlib.patches import Polygon
-import matplotlib.pyplot as plt
 
-from kaist_eval.coco import COCO
-from kaist_eval.cocoeval import COCOeval, Params
+from ZBox.kaist_eval.coco import COCO
+from ZBox.kaist_eval.cocoeval import COCOeval, Params
 
 font = {'size': 22}
 matplotlib.rc('font', **font)
